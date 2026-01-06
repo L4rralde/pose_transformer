@@ -13,6 +13,7 @@ import poseformer.data_utils as dutils
 
 img_size = (240, 320)
 
+
 image_transform = transforms.Compose([
     transforms.Resize(img_size),
     transforms.ToTensor()
@@ -57,17 +58,17 @@ def main():
             ])
 
             #2. Data pre-processing
+            #Pre-process extrinsics: Set first pose as origin and normalize translations.
             pose = np.asarray([
                 pose_seq_transform(pose_seq)
                 for pose_seq in batch['pose']
             ])
 
+            #Get translation Tensor.
             t = torch.Tensor(pose[..., :3, 3])
+            #Convert roation matrices to quaternions.
             qvec = torch.Tensor(np.asarray([
-                [
-                    dutils.rotation_matrix_to_quaternion(rot)
-                    for rot in rot_seq
-                ]
+                dutils.mat_to_quat(rot_seq)
                 for rot_seq in pose[..., :3, :3]
             ]))
 

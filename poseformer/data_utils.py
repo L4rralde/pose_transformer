@@ -70,44 +70,80 @@ def max_distance_normalization(poses: List[np.ndarray]) -> List[np.ndarray]:
     return new_poses
 
 
-#FUTURE: This code is vibe code. Replace with yours later.
-def rotation_matrix_to_quaternion(R: np.ndarray) -> np.ndarray:
+def _sqrt_positive_part(x: np.ndarray) -> np.ndarray:
     """
-    Convert a 3x3 rotation matrix to a quaternion (w, x, y, z).
-
-    Assumes R is a valid rotation matrix.
+    sqrt(max(x, 0)) with zero gradient at x=0 (for consistency with torch code)
     """
-    assert R.shape == (3, 3)
+    return np.sqrt(np.maximum(x, 0.0))
 
-    q = np.empty(4, dtype=np.float64)
-    trace = np.trace(R)
 
-    if trace > 0.0:
-        s = np.sqrt(trace + 1.0) * 2.0
-        q[0] = 0.25 * s
-        q[1] = (R[2, 1] - R[1, 2]) / s
-        q[2] = (R[0, 2] - R[2, 0]) / s
-        q[3] = (R[1, 0] - R[0, 1]) / s
-    else:
-        if R[0, 0] > R[1, 1] and R[0, 0] > R[2, 2]:
-            s = np.sqrt(1.0 + R[0, 0] - R[1, 1] - R[2, 2]) * 2.0
-            q[0] = (R[2, 1] - R[1, 2]) / s
-            q[1] = 0.25 * s
-            q[2] = (R[0, 1] + R[1, 0]) / s
-            q[3] = (R[0, 2] + R[2, 0]) / s
-        elif R[1, 1] > R[2, 2]:
-            s = np.sqrt(1.0 + R[1, 1] - R[0, 0] - R[2, 2]) * 2.0
-            q[0] = (R[0, 2] - R[2, 0]) / s
-            q[1] = (R[0, 1] + R[1, 0]) / s
-            q[2] = 0.25 * s
-            q[3] = (R[1, 2] + R[2, 1]) / s
-        else:
-            s = np.sqrt(1.0 + R[2, 2] - R[0, 0] - R[1, 1]) * 2.0
-            q[0] = (R[1, 0] - R[0, 1]) / s
-            q[1] = (R[0, 2] + R[2, 0]) / s
-            q[2] = (R[1, 2] + R[2, 1]) / s
-            q[3] = 0.25 * s
+def standardize_quaternion(q: np.ndarray) -> np.ndarray:
+    """
+    Ensure the real (scalar) part is non-negative.
+    Quaternion format: (..., 4) with scalar-last (x, y, z, w)
+    """
+    sign = np.where(q[..., 3:4] < 0, -1.0, 1.0)
+    return q * sign
 
-    # Normalize for safety
-    q /= np.linalg.norm(q)
-    return q
+
+def mat_to_quat(
+    matrices: list[np.ndarray] | np.ndarray,
+) -> np.ndarray:
+    """
+    Convert rotation matrices to quaternions using a robust, branch-free method.
+
+    Args:
+        matrices: list or array of shape (N, 3, 3)
+
+    Returns:
+        quaternions: array of shape (N, 4) in (x, y, z, w) order
+    """
+    R = np.asarray(matrices, dtype=np.float64)
+
+    if R.ndim != 3 or R.shape[-2:] != (3, 3):
+        raise ValueError(f"Expected shape (N, 3, 3), got {R.shape}")
+
+    m00, m01, m02 = R[:, 0, 0], R[:, 0, 1], R[:, 0, 2]
+    m10, m11, m12 = R[:, 1, 0], R[:, 1, 1], R[:, 1, 2]
+    m20, m21, m22 = R[:, 2, 0], R[:, 2, 1], R[:, 2, 2]
+
+    # Step 1: Compute candidate magnitudes
+    q_abs = _sqrt_positive_part(
+        np.stack(
+            [
+                1.0 + m00 + m11 + m22,
+                1.0 + m00 - m11 - m22,
+                1.0 - m00 + m11 - m22,
+                1.0 - m00 - m11 + m22,
+            ],
+            axis=1,
+        )
+    )
+
+    # Step 2: Build quaternion candidates (rijk ordering)
+    quat_by_rijk = np.stack(
+        [
+            np.stack([q_abs[:, 0] ** 2, m21 - m12, m02 - m20, m10 - m01], axis=1),
+            np.stack([m21 - m12, q_abs[:, 1] ** 2, m10 + m01, m02 + m20], axis=1),
+            np.stack([m02 - m20, m10 + m01, q_abs[:, 2] ** 2, m12 + m21], axis=1),
+            np.stack([m10 - m01, m20 + m02, m21 + m12, q_abs[:, 3] ** 2], axis=1),
+        ],
+        axis=1,
+    )  # shape: (N, 4, 4)
+
+    # Step 3: Normalize candidates
+    eps = 0.1
+    denom = 2.0 * np.maximum(q_abs, eps)[:, :, None]
+    quat_candidates = quat_by_rijk / denom
+
+    # Step 4: Pick best-conditioned candidate
+    best = np.argmax(q_abs, axis=1)
+    quats = quat_candidates[np.arange(len(R)), best]
+
+    # Step 5: Convert from rijk → ijkr (x, y, z, w)
+    quats = quats[:, [1, 2, 3, 0]]
+
+    # Step 6: Standardize sign (w ≥ 0)
+    quats = standardize_quaternion(quats)
+
+    return quats
