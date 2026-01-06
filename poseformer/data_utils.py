@@ -4,7 +4,7 @@ from PIL import Image
 import numpy as np
 
 
-def load_image(path: str) -> Image.Any:
+def load_image(path: str) -> Image.Image:
     return Image.open(path)
 
 
@@ -12,7 +12,7 @@ class SquareResize:
     def __init__(self, size) -> None:
         self.size = size
 
-    def __call__(self, img: Image.Any) -> Image.Any:
+    def __call__(self, img: Image.Image) -> Image.Image:
         return img.resize((self.size, self.size))
 
 
@@ -23,7 +23,7 @@ class ResizeForTokenization:
         self.max_size = max_size
         self.patch_size = patch_size
 
-    def __call__(self, img: Image.Any) -> Image.Any:
+    def __call__(self, img: Image.Image) -> Image.Image:
         w, h = img.size
         scale = float(self.max_size)/w if w>h else float(self.max_size)/h
         w = int(scale * w)

@@ -38,7 +38,7 @@ class View:
     source: str
 
     @property
-    def image(self) -> Image.Any:
+    def image(self) -> Image.Image:
         return Image.open(self.path)
 
     def __repr__(self) -> str:
