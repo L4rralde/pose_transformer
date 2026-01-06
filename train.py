@@ -40,8 +40,9 @@ def main():
     epochs = 20
 
     for epoch in tqdm(range(1, epochs+1)):
-        batch_size = 16
-        sample_size = (epoch%8) + 1
+        sample_size = (epoch % 8) + 1
+        batch_size = 128//sample_size
+        tqdm.write(f"Using batch size: {batch_size} and sequence length: {sample_size}")
         numeric_loss = 0.0
         for batch in kitti_sequencer.get_batches(batch_size=batch_size, sample_size=sample_size):
             #1. Sanity Check
