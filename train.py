@@ -12,7 +12,8 @@ import poseformer.data_utils as dutils
 
 
 img_size = (240, 320)
-
+device = "cuda" if torch.cuda.is_available() else "cpu"
+device = torch.device(device)
 
 image_transform = transforms.Compose([
     transforms.Resize(img_size),
@@ -26,7 +27,7 @@ def pose_seq_transform(pose_seq: List[np.ndarray]) -> List[np.ndarray]:
 
 
 def main():
-    model = PoseTransformer(input_size=img_size)
+    model = PoseTransformer(input_size=img_size).to(device)
     optim = torch.optim.AdamW(model.parameters())
 
     q_loss = nn.MSELoss(reduction='sum')
@@ -56,6 +57,7 @@ def main():
                 ])
                 for view_seq in batch['image']
             ])
+            x = x.to(device)
 
             #2. Data pre-processing
             #Pre-process extrinsics: Set first pose as origin and normalize translations.
@@ -66,11 +68,13 @@ def main():
 
             #Get translation Tensor.
             t = torch.Tensor(pose[..., :3, 3])
+            t = t.to(device)
             #Convert roation matrices to quaternions.
             qvec = torch.Tensor(np.asarray([
                 dutils.mat_to_quat(rot_seq)
                 for rot_seq in pose[..., :3, :3]
             ]))
+            qvec = qvec.to(device)
 
             #3. Forward pass, 
             optim.zero_grad()
@@ -83,7 +87,7 @@ def main():
             #5. Model update
             optim.step()
 
-            numeric_loss += loss.data.item()
+            numeric_loss += loss.data.cpu().item()
     
         tqdm.write(f"{epoch}: {numeric_loss}")
 
