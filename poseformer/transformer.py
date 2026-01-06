@@ -213,18 +213,24 @@ class TransformerEncoder(nn.Module):
         self,
         input_size: tuple = (120, 160),
         patch_size: int = 16,
-        hidden_size: int = 512,
-        num_heads: int = 8,
+        hidden_size: int = 384,
+        num_heads: int = 6,
+        encoder_depth: int = 8,
+        alternate_depth: int = 4
     ):
         super().__init__()
+
+        if alternate_depth % 2 != 0:
+            raise ValueError("Alternate depth must be a even")
 
         self.in_channels = 3
         self.out_channels = 3
         self.patch_size = patch_size
         self.hidden_size = hidden_size
         self.num_heads = num_heads
+        self.encoder_depth = encoder_depth
+        self.alternate_depth = alternate_depth
         self.num_registers = 4
-
 
         self.x_embedder = PatchEmbed(
             img_size=input_size,
@@ -239,10 +245,10 @@ class TransformerEncoder(nn.Module):
             requires_grad=False,
         )
 
-        self.encoder = Encoder(hidden_size, num_heads, depth=2)
+        self.encoder = Encoder(hidden_size, num_heads, depth=self.encoder_depth)
 
         alternate_blocks = []
-        for _ in range(2):
+        for _ in range(self.alternate_depth//2):
             alternate_blocks.append(GlobalBlock(hidden_size, num_heads))
             alternate_blocks.append(FrameBlock(hidden_size, num_heads))
         self.alternate_blocks = nn.ModuleList(alternate_blocks)
@@ -354,15 +360,20 @@ class PoseTransformer(nn.Module):
         self,
         input_size: tuple = (120, 160),
         patch_size: int = 16,
-        hidden_size: int = 512,
-        num_heads: int = 8,
+        hidden_size: int = 384,
+        num_heads: int = 6,
+        encoder_depth: int = 8,
+        alternate_depth: int = 4,
     ):
         super().__init__()
+
         self.backbone = TransformerEncoder(
             input_size,
             patch_size,
             hidden_size,
-            num_heads
+            num_heads,
+            encoder_depth,
+            alternate_depth
         )
         self.cam_head = CameraPoseHead(hidden_size)
 
