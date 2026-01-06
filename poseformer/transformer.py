@@ -5,6 +5,8 @@ import torch.nn as nn
 import numpy as np
 
 
+#FUTURE:
+# - How to allow different image sizes if the positional embedding expects a fixed number of patches?
 
 class PatchEmbed(nn.Module):
     """
@@ -34,7 +36,7 @@ class PatchEmbed(nn.Module):
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         B, S, C, H, W = x.shape
         assert H == self.img_h and W == self.img_w, \
-            f"Se espera imagen {self.img_size}x{self.img_size}, recibida {H}x{W}"
+            f"Se espera imagen {self.img_h}x{self.img_w}, recibida {H}x{W}"
         x = x.view(B*S, C, H, W)
         x = self.proj(x)  # (B*S, D, Gh, Gw)
         x = x.flatten(2).transpose(1, 2)  # (B*S, N, D)
