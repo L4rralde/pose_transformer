@@ -178,6 +178,8 @@ class GlobalBlock(Block):
         x = x.view(B, S, N, D)
         return x
 
+#FUTURE: Define un bloque de atención dispersa (hacer atención por ventanas de imágenes) si usamos una secuencia ordenada.
+
 
 class FinalLayer(nn.Module):
     def __init__(self, hidden_size: int):

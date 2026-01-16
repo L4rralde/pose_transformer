@@ -20,6 +20,7 @@ image_transform = transforms.Compose([
     transforms.ToTensor()
 ])
 
+#This function is correct, but is too specific.
 def pose_seq_transform(pose_seq: List[np.ndarray]) -> List[np.ndarray]:
     return dutils.max_distance_normalization(
         dutils.set_first_pose_as_origin(pose_seq)
@@ -40,7 +41,7 @@ def main():
     epochs = 20
 
     for epoch in tqdm(range(1, epochs+1)):
-        sample_size = (epoch % 8) + 1
+        sample_size = ((epoch - 1) % 7) + 2
         batch_size = 128//sample_size
         tqdm.write(f"Using batch size: {batch_size} and sequence length: {sample_size}")
         numeric_loss = 0.0

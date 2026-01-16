@@ -60,9 +60,13 @@ def set_first_pose_as_origin(poses: List[np.ndarray]) -> List[np.ndarray]:
 
 
 def max_distance_normalization(poses: List[np.ndarray]) -> List[np.ndarray]:
+    if len(poses) == 1:
+        return poses
     positions = [p[:3, 3] for p in poses]
     distances = [np.linalg.norm(pos) for pos in positions]
-    scale = max(max(distances), 1.0)
+    scale = max(distances) #???
+    if scale == 0:
+        raise RuntimeError("Found no displacement at all")
     new_poses = [p.copy() for p in poses]
     for p in new_poses:
         p[:3, :] /=  scale
