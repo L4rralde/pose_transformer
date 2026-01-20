@@ -22,13 +22,13 @@ class Sim3Transform:
         t = matrix[:3, 3]
         return Sim3Transform(s, R, t)
 
-    def to_list(self) -> List[float, np.ndarray, np.ndarray]:
+    def to_list(self) -> list:
         return [self.s, self.R.copy(), self.t.copy()]
 
     def to_short_matrix(self) -> np.ndarray:
         return np.hstack((self.s * self.R, self.t))
 
-    def to_homogeneus(self) -> np.ndarray:
+    def to_homogenoeus(self) -> np.ndarray:
         matrix = np.eye(4)
         matrix[:3] = self.to_short_matrix()
         return matrix
@@ -41,4 +41,3 @@ class Sim3Transform:
         R = np.transpose(self.R)
         t = -(R @ self.t)/self.s
         return Sim3Transform(s, R, t)
-

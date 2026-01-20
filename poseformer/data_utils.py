@@ -46,39 +46,32 @@ class ResizeForTokenization:
         return high
 
 
-def set_first_pose_as_origin(poses: List[np.ndarray]) -> List[np.ndarray]:
-    r0 = poses[0][:3, :3]
-    t0 = poses[0][:3, 3]
-    new_poses = []
-    for p in poses:
-        new_p = np.empty_like(p)
-        new_p[:3, :3] = r0.T @ p[:3, :3]
-        new_p[:3, 3] = r0.T @ (p[:3, 3] - t0)
-        new_poses.append(new_p)
-
-    return new_poses
-
-
-def max_distance(poses: List[np.ndarray]) -> float:
+def max_distance_from_first(poses: List[np.ndarray]) -> float:
     if len(poses) < 2:
         raise ValueError("Expected a list of different views")
     positions = [p[:3, 3] for p in poses]
-    distances = [np.linalg.norm(pos) for pos in positions]
-    scale = max(distances) #???
-    if scale == 0:
-        raise RuntimeError("Found no displacement at all")
+    distances = [np.linalg.norm(pos - positions[0]) for pos in positions]
+    max_distance = max(distances)
 
-    return scale
+    return max_distance
 
-def max_distance_normalization(poses: List[np.ndarray]) -> List[np.ndarray]:
-    if len(poses) == 1:
-        return poses
-    scale = max_distance(poses)
-    new_poses = [p.copy() for p in poses]
-    for p in new_poses:
-        p[:3, :] /=  scale
-    
-    return new_poses
+
+def closed_form_se3_inv(s3_mat: np.ndarray) -> np.ndarray:
+    R = s3_mat[:3, :3]
+    t = s3_mat[:3, 3]
+    inv = s3_mat.copy()
+    inv[:3, :3] = np.transpose(R)
+    inv[:3, 3] = -np.transpose(R) @ t
+    return inv
+
+
+def to_homogenoeus(mat: np.ndarray):
+    m, _ = mat.shape
+    if m == 4:
+        return mat
+    mat_h = np.eye(4, dtype=mat.dtype)
+    mat_h[:3] = mat
+    return mat_h
 
 
 def _sqrt_positive_part(x: np.ndarray) -> np.ndarray:

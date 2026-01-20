@@ -20,9 +20,10 @@ image_transform = transforms.Compose([
     transforms.ToTensor()
 ])
 
-#This function is correct, but is too specific.
+
 def pose_seq_transform(pose_seq: List[np.ndarray]) -> List[np.ndarray]:
     """
+    Receives a list of poses (they can be either 3x4 or 4x4 matrices)
     Sets the first pose as origin and scales the trajectory such as each pose lies
     within a unit sphere.
     Poses are transformed as follows:
@@ -31,9 +32,35 @@ def pose_seq_transform(pose_seq: List[np.ndarray]) -> List[np.ndarray]:
     And I = S C_0 S_s^{-1} \implies S = S_s C_0^{-1}
     TWe use the close form of the operation.
     """
-    scale = 1.0 if len(pose_seq) == 1 else dutils.max_distance(pose_seq)
+    pose_seq_h = [dutils.to_homogenoeus(pose) for pose in pose_seq]
+    if len(pose_seq_h) == 1:
+        scale = 1.0
+    else:
+        max_distance = dutils.max_distance_from_first(pose_seq_h)
+        if max_distance == 0:
+            raise RuntimeError("All poses share the same position?")
+        scale = 1.0/max_distance
     
+    #First, ensure evry matix is a homogeneus matrix
+    c0_inv = dutils.closed_form_se3_inv(pose_seq_h[0])
+    t_pose_seq_h = []
+    for pose in pose_seq_h: #S_s C_0^{-1} C S_s^{-1}
+        t_pose = c0_inv @ pose # C_0^{-1} C
+        t_pose[:3, 3] *= scale  # S_s _ S_s^{-1}
+        t_pose_seq_h.append(t_pose)
 
+    #Additional sanity check
+    if not np.allclose(t_pose_seq_h[0], np.identity(4), atol=1e-6):
+        print(t_pose_seq_h[0])
+        raise RuntimeError("First transformed pose is not the origin")
+
+    max_dist = dutils.max_distance_from_first(t_pose_seq_h)
+    if abs(max_dist - 1.0) > 1e-6:
+        print(max_dist)
+        print(t_pose_seq_h)
+        raise RuntimeError("Trajectorie does not lie in the unit sphere")
+    
+    return t_pose_seq_h
 
 
 def main():
