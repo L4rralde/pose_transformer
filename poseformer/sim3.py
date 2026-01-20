@@ -37,4 +37,8 @@ class Sim3Transform:
         return Sim3Transform(other.s, other.R, other.t)
 
     def inverse(self) -> "Sim3Transform":
-        raise NotImplementedError("TODO")
+        s = 1/self.s
+        R = np.transpose(self.R)
+        t = -(R @ self.t)/self.s
+        return Sim3Transform(s, R, t)
+

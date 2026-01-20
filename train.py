@@ -22,9 +22,18 @@ image_transform = transforms.Compose([
 
 #This function is correct, but is too specific.
 def pose_seq_transform(pose_seq: List[np.ndarray]) -> List[np.ndarray]:
-    return dutils.max_distance_normalization(
-        dutils.set_first_pose_as_origin(pose_seq)
-    )
+    """
+    Sets the first pose as origin and scales the trajectory such as each pose lies
+    within a unit sphere.
+    Poses are transformed as follows:
+        C' = S C S_s^{-1}
+    Where s = 1/max_i(||t_i - t_0||)
+    And I = S C_0 S_s^{-1} \implies S = S_s C_0^{-1}
+    TWe use the close form of the operation.
+    """
+    scale = 1.0 if len(pose_seq) == 1 else dutils.max_distance(pose_seq)
+    
+
 
 
 def main():

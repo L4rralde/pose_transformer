@@ -59,14 +59,21 @@ def set_first_pose_as_origin(poses: List[np.ndarray]) -> List[np.ndarray]:
     return new_poses
 
 
-def max_distance_normalization(poses: List[np.ndarray]) -> List[np.ndarray]:
-    if len(poses) == 1:
-        return poses
+def max_distance(poses: List[np.ndarray]) -> float:
+    if len(poses) < 2:
+        raise ValueError("Expected a list of different views")
     positions = [p[:3, 3] for p in poses]
     distances = [np.linalg.norm(pos) for pos in positions]
     scale = max(distances) #???
     if scale == 0:
         raise RuntimeError("Found no displacement at all")
+
+    return scale
+
+def max_distance_normalization(poses: List[np.ndarray]) -> List[np.ndarray]:
+    if len(poses) == 1:
+        return poses
+    scale = max_distance(poses)
     new_poses = [p.copy() for p in poses]
     for p in new_poses:
         p[:3, :] /=  scale
