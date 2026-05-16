@@ -1,0 +1,3 @@
+[submodule "submodules/EUPE"]
+	path = submodules/EUPE
+	url = https://github.com/facebookresearch/EUPE.git
