@@ -42,8 +42,7 @@ class View:
 
     @property
     def image(self) -> Image.Image:
-        with Image.open(self.path) as img:
-            return img.copy()
+        return Image.open(self.path).convert('RGB')
 
     def __repr__(self) -> str:
         return f"View({self.source}, stamp={self.time_stamp:.2f})"
