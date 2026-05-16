@@ -12,6 +12,8 @@ from PIL import Image
 #Different sequences. Different sizes.
 
 def split_list_complete_chunks(x: list, chunk_size: int) -> List[List[Any]]:
+    if chunk_size <= 0:
+        raise RuntimeError("Invalid chunk size")
     chunks = [x[i: i+chunk_size] for i in range(0, len(x), chunk_size)]
     if len(chunks[-1]) < chunk_size:
         chunks = chunks[:-1]
@@ -26,7 +28,8 @@ def read_pose_txt(path: str) -> List[np.ndarray]:
 
 def read_times_file(path: str) -> List[int]:
     times = np.loadtxt(path)
-    assert len(times.shape) == 1
+    if not len(times.shape) == 1:
+        raise RuntimeError("Incorrect times file format")
     return times.tolist()
 
 
@@ -39,7 +42,8 @@ class View:
 
     @property
     def image(self) -> Image.Image:
-        return Image.open(self.path)
+        with Image.open(self.path) as img:
+            return img.copy()
 
     def __repr__(self) -> str:
         return f"View({self.source}, stamp={self.time_stamp:.2f})"
@@ -56,9 +60,11 @@ class KittiOdomSequence:
         poses = read_pose_txt(poses_file_path)
         times = read_times_file(times_file_path)
         img_paths = sorted(glob("*.png", root_dir=imgs_dir_path))
-        assert len(poses) == len(times) == len(img_paths)
+        if len(poses) != len(times) or len(times) != len(img_paths):
+            raise RuntimeError("Incomplete data")
         img_paths = [str(os.path.join(imgs_dir_path, path)) for path in img_paths]
-        assert len(poses) == len(times) == len(img_paths)
+        if len(poses) != len(times) or len(times) != len(img_paths):
+            raise RuntimeError("Incomplete data")
 
         self.data = [
             View(path, pose, stamp, f"kitti_odom_{self.key}")
@@ -95,6 +101,7 @@ class KittiOdom:
                 kitti_posed_sequence = KittiOdomSequence(data_root, seq)
                 self.kitty_odom_sequences.append(kitti_posed_sequence)
             except Exception as e:
+                print(f"Failed loading sequence {seq}: {e}")
                 continue
 
         self.sequences = self.chunk_sequences(seq_len)
@@ -118,14 +125,18 @@ class KittiOdom:
         random.shuffle(self.sequences)
 
     def get_batches(self, *,batch_size: int, sample_size: int) -> Iterable:
-        for batch_i in range(0, self.__len__(), batch_size):
+        attributes = ['image'] + [f.name for f in fields(View)]
+        for batch_i in range(0, len(self), batch_size):
             batch = self.sequences[batch_i: batch_i+batch_size]
-            batch = [random.sample(seq, sample_size) for seq in batch]
-            attributes = ['image'] + [f.name for f in fields(View)]
+
+            sampled = [
+                random.sample(seq, sample_size)
+                for seq in batch
+            ]
             yield {
                 att: [
-                    [view.__getattribute__(att) for view in seq]
-                    for seq in batch
+                    [getattr(view, att) for view in seq]
+                    for seq in sampled
                 ]
                 for att in attributes
             }
