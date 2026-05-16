@@ -223,7 +223,7 @@ class TransformerEncoder(nn.Module):
         super().__init__()
 
         if alternate_depth % 2 != 0:
-            raise ValueError("Alternate depth must be a even")
+            raise ValueError("Alternate depth must be even")
 
         self.in_channels = 3
         self.out_channels = 3
